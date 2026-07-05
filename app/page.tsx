@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import QRCode from "qrcode";
+import { Analytics } from "@vercel/analytics/next"
 
 export default function Home() {
   const phone = "9830170437";
@@ -9,12 +10,42 @@ export default function Home() {
 
   const [darkMode, setDarkMode] = useState(false);
   const [qrImage, setQrImage] = useState("");
+  
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [showChat, setShowChat] = useState(false);
 
   const toggleDark = () => setDarkMode(!darkMode);
 
   useEffect(() => {
     QRCode.toDataURL(mapsLink).then(setQrImage);
   }, []);
+
+  type ChatMessage = {
+  role: "user" | "bot";
+  text: string;
+};
+
+
+  const sendChat = async () => {
+  if (!chatInput.trim()) return;
+
+  const userMsg: ChatMessage = { role: "user", text: chatInput };
+  setChatMessages((prev) => [...prev, userMsg]);
+
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    body: JSON.stringify({ message: chatInput }),
+  });
+
+  const data = await res.json();
+
+  const botMsg: ChatMessage = { role: "bot", text: data.reply };
+  setChatMessages((prev) => [...prev, botMsg]);
+
+  setChatInput("");
+};
+
 
   return (
     <div className={darkMode ? "dark" : ""}>
@@ -224,6 +255,60 @@ export default function Home() {
           💬 WhatsApp
         </a>
       </div>
+      {/* 👉 Floating Chatbot */}
+<div className="fixed bottom-5 right-5">
+  {/* Chatbot Button */}
+  <button
+    onClick={() => setShowChat(!showChat)}
+    className="bg-blue-600 text-white p-4 rounded-full shadow-xl hover:bg-blue-700 transition"
+  >
+    🤖
+  </button>
+
+  {/* Chat Window */}
+  {showChat && (
+    <div className="mt-3 w-80 h-96 bg-white dark:bg-gray-800 rounded-xl shadow-2xl flex flex-col">
+      {/* Header */}
+      <div className="bg-blue-600 text-white p-3 rounded-t-xl flex justify-between items-center">
+        <span className="font-bold">ChatBot</span>
+        <button onClick={() => setShowChat(false)}>✖</button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 p-3 overflow-y-auto space-y-2 text-sm">
+        {chatMessages.map((msg, i) => (
+          <p
+            key={i}
+            className={`p-2 rounded-lg max-w-[75%] ${
+              msg.role === "user"
+                ? "bg-blue-200 dark:bg-blue-900 self-end ml-auto"
+                : "bg-gray-200 dark:bg-gray-700"
+            }`}
+          >
+            {msg.text}
+          </p>
+        ))}
+      </div>
+
+      {/* Input Box */}
+      <div className="p-3 border-t border-gray-300 dark:border-gray-700 flex gap-2">
+        <input
+          className="flex-1 p-2 rounded bg-gray-100 dark:bg-gray-700"
+          placeholder="Type..."
+          value={chatInput}
+          onChange={(e) => setChatInput(e.target.value)}
+        />
+        <button
+          onClick={sendChat}
+          className="bg-blue-600 text-white px-3 rounded"
+        >
+          ➤
+        </button>
+      </div>
+    </div>
+  )}
+</div>
+<Analytics />
     </div>
   );
 }
